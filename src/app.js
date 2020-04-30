@@ -1,7 +1,7 @@
 const express = require("express");
 const cors = require("cors");
 
-const { uuid } = require("uuidv4");
+const { uuid, isUuid } = require("uuidv4");
 
 const app = express();
 
@@ -9,6 +9,25 @@ app.use(express.json());
 app.use(cors());
 
 const repositories = [];
+
+function logRequests(req, res, next) {
+  const { method, url } = req;
+  const logLabel = `[${method.toUpperCase()} ${url}]`;
+  console.log(logLabel);
+  next();
+}
+function validadeProjectid(req, res, next) {
+  const { id } = req.params;
+
+  if (!isUuid(id)) {
+    return res.status(400).json({ error: "Invalid project ID." });
+  }
+
+  return next();
+}
+
+app.use(logRequests);
+app.use("/repositories/:id", validadeProjectid);
 
 app.get("/repositories", (request, response) => {
   return response.json(repositories);
@@ -78,31 +97,13 @@ app.delete("/repositories/:id", (request, response) => {
 app.post("/repositories/:id/like", (request, response) => {
   const { id } = request.params;
 
-  const repositoryIndex = repositories.findIndex((repository) => {
-    if (repository.id === id) {
-      return true;
-    }
-    return false;
-  });
+  const repository = repositories.find((repository) => repository.id === id);
 
-  console.log(repositoryIndex);
-
-  if (repositoryIndex) {
-    return response.status(400).json({
-      error: "Repository not found",
-    });
+  if (!repository) {
+    return response.status(400).json({ error: "Repository does not exists." });
   }
-  const { title, url, techs, likes } = repositories[repositoryIndex];
 
-  const repository = {
-    id,
-    title,
-    url,
-    techs,
-    likes: likes + 1,
-  };
-
-  repositories[repositoryIndex] = repository;
+  repository.likes += 1;
 
   return response.json(repository);
 });
